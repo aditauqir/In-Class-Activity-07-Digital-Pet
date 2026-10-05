@@ -17,7 +17,7 @@ Collaborative Flutter state-management simulation app built with `StatefulWidget
 
 ### Core Care Systems (Team 1)
 - **Pet Name**: Configurable pet name with an input field and confirmed display; `TextEditingController` cleanly released in `dispose()`.
-- **Bounded State Meters (0–100)**:
+- **Bounded State Meters (0-100)**:
   - **Happiness** (starts at 50, clamped strictly between 0 and 100).
   - **Hunger** (starts at 50, clamped strictly between 0 and 100).
 - **Core Actions**:
@@ -33,7 +33,7 @@ Collaborative Flutter state-management simulation app built with `StatefulWidget
   - App bar action toggle allows switching between **Production Timers** (30s hunger, 3-minute win) and **Fast Test Timers** (5s hunger, 10s win) for rapid evaluation and grading.
 
 ### Advanced Feature 1: Energy System (Team 1)
-- **Energy Meter (0–100)**: Starts at 70.
+- **Energy Meter (0-100)**: Starts at 70.
 - **Costs**: Playing costs 15 energy. If energy drops below 15, pet is exhausted and cannot play until rested.
 - **Recovery**: Rest / Nap action restores +25 energy (and slightly increases hunger by +5).
 
