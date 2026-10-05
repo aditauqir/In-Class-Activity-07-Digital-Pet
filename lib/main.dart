@@ -443,7 +443,8 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
                       width: 150,
                       height: 150,
                       decoration: BoxDecoration(
-                        color: _moodColor.withOpacity(0.15),
+                        // light bg so tint is visible, asset is mine (drew it myself)
+                        color: _moodColor.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                         border: Border.all(color: _moodColor, width: 3),
                       ),
