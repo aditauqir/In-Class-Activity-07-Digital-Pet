@@ -1,30 +1,45 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:digital_pet/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('Digital Pet smoke and care action test', (WidgetTester tester) async {
+    // Set a realistic mobile device screen size for the test
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    await tester.pumpWidget(const DigitalPetApp());
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+    // Verify initial values
+    expect(find.text('Pip'), findsWidgets);
+    expect(find.text('Mood: Neutral'), findsOneWidget);
+    expect(find.text('50 / 100'), findsNWidgets(2)); // Happiness & Hunger both start at 50
+
+    // Feed the pet
+    final feedButton = find.text('Feed (-10 Hunger)');
+    await tester.ensureVisible(feedButton);
+    await tester.tap(feedButton);
     await tester.pump();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Verify hunger decreased (50 - 10 = 40)
+    expect(find.text('40 / 100'), findsOneWidget);
+
+    // Play with the pet
+    final playButton = find.text('Play (+15 Happy)');
+    await tester.ensureVisible(playButton);
+    await tester.tap(playButton);
+    await tester.pump();
+
+    // Reset game
+    final resetButton = find.text('Reset');
+    await tester.ensureVisible(resetButton);
+    await tester.tap(resetButton);
+    await tester.pump();
+
+    // Verify reset restores initial state
+    expect(find.text('Pet care restarted!'), findsOneWidget);
+    expect(find.text('50 / 100'), findsNWidgets(2));
   });
 }
