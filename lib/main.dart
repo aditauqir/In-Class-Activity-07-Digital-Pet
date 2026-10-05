@@ -68,6 +68,12 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
   // Seconds remaining until the continuous 3-minute win condition is met
   int _winSecondsRemaining = 0;
 
+  // team 2 - for the little bounce + emoji reaction, short lived only
+  double _bounce = 1.0;
+  Timer? _bounceTimer;
+  String? _reaction;
+  Timer? _reactionTimer;
+
   // Testing flag: toggles between 5-second hunger / 10-second win and production durations
   bool _fastTestTimers = false;
 
@@ -87,12 +93,14 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
 
   @override
   void dispose() {
-    // Cancel all active timers to prevent memory leaks and post-dispose setState calls
+    // cancel everything so we dont get setState after dispose
     _hungerTimer?.cancel();
     _highMoodTimer?.cancel();
     _countdownTimer?.cancel();
+    _bounceTimer?.cancel();
+    _reactionTimer?.cancel();
 
-    // Dispose text editing controller owned by this state object
+    // have to dispose the controller we own
     _nameController.dispose();
 
     super.dispose();
@@ -211,6 +219,7 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
           : 'Fed $_petName! (Hunger -10, Happiness +10)';
     });
 
+    _doBounce('🍖');
     _updateOutcome();
   }
 
@@ -237,6 +246,7 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
       _actionMessage = 'Played with $_petName! (Happiness +15, Hunger +5, Energy -15)';
     });
 
+    _doBounce('🎾');
     _updateOutcome();
   }
 
@@ -260,6 +270,7 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
       _actionMessage = '$_petName took a restful nap! (Energy +25, Hunger +5)';
     });
 
+    _doBounce('💤');
     _updateOutcome();
   }
 
@@ -315,17 +326,44 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
     return Icons.sentiment_very_dissatisfied;
   }
 
-  // Derived color threshold based on pet happiness (exact snippet from handout)
+  // mood color for the tint, has to match the label cutoffs
   Color get _moodColor {
     if (_happiness > 70) return Colors.green;
     if (_happiness >= 30) return Colors.yellow;
     return Colors.red;
   }
 
+  // team 2 - pet gets a bit bigger when happy, smaller when sad
+  double get _petScale => _happiness > 70 ? 1.06 : _happiness < 30 ? 0.94 : 1.0;
+
+  // little bounce when we feed / play / tap. has to check mounted
+  // because the timer might fire after we leave the page
+  void _doBounce(String emoji) {
+    setState(() {
+      _bounce = 1.18;
+      _reaction = emoji;
+    });
+    _bounceTimer?.cancel();
+    _reactionTimer?.cancel();
+    _bounceTimer = Timer(const Duration(milliseconds: 200), () {
+      if (!mounted) return;
+      setState(() {
+        _bounce = 1.0;
+      });
+    });
+    _reactionTimer = Timer(const Duration(milliseconds: 900), () {
+      if (!mounted) return;
+      setState(() {
+        _reaction = null;
+      });
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Disable action buttons when a terminal game outcome is reached
     final bool controlsDisabled = _gameOver || _hasWon;
+    // if user has reduced motion on, skip the bounce stuff
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
 
     return Scaffold(
       appBar: AppBar(
@@ -393,26 +431,74 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
             ),
             const SizedBox(height: 16),
 
-            // Pet display area: circular avatar tinted according to current mood
+            // pet pic - team 2. tint changes with mood, tap just bounces
+            // (doesnt give happiness so you cant cheat the win timer)
             Center(
-              child: Container(
-                width: 140,
-                height: 140,
-                decoration: BoxDecoration(
-                  color: _moodColor.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: _moodColor, width: 3),
-                ),
-                child: Icon(
-                  _moodIcon,
-                  size: 72,
-                  color: _moodColor,
+              child: GestureDetector(
+                onTap: () => _doBounce('❤️'),
+                child: Stack(
+                  alignment: Alignment.topRight,
+                  children: [
+                    Container(
+                      width: 150,
+                      height: 150,
+                      decoration: BoxDecoration(
+                        // light bg so tint is visible, asset is mine (drew it myself)
+                        color: _moodColor.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: _moodColor, width: 3),
+                      ),
+                      child: Center(
+                        child: AnimatedScale(
+                          scale: reduceMotion ? _petScale : _petScale * _bounce,
+                          duration: reduceMotion
+                              ? Duration.zero
+                              : const Duration(milliseconds: 180),
+                          curve: Curves.easeOutBack,
+                          child: ColorFiltered(
+                            colorFilter: ColorFilter.mode(
+                                _moodColor, BlendMode.modulate),
+                            child: Image.asset(
+                              'assets/pet.png',
+                              width: 110,
+                              height: 110,
+                              fit: BoxFit.contain,
+                              // just in case asset missing, show icon so app still works
+                              errorBuilder: (c, e, s) => Icon(
+                                _moodIcon,
+                                size: 72,
+                                color: _moodColor,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (_reaction != null)
+                      AnimatedOpacity(
+                        opacity: _reaction != null ? 1.0 : 0.0,
+                        duration: reduceMotion
+                            ? Duration.zero
+                            : const Duration(milliseconds: 250),
+                        child: AnimatedSlide(
+                          offset: _reaction != null
+                              ? Offset.zero
+                              : const Offset(0, -0.3),
+                          duration: reduceMotion
+                              ? Duration.zero
+                              : const Duration(milliseconds: 250),
+                          child: Text(
+                            _reaction!,
+                            style: const TextStyle(fontSize: 32),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
             const SizedBox(height: 10),
 
-            // Pet name display header
             Text(
               _petName,
               textAlign: TextAlign.center,
@@ -420,21 +506,25 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
             ),
             const SizedBox(height: 4),
 
-            // Accessible mood feedback displaying both icon and text label
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(_moodIcon, color: _moodColor, size: 20),
-                const SizedBox(width: 6),
-                Text(
-                  'Mood: $_moodLabel',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: _moodColor,
+            // mood text + icon so its not just color (accessibility)
+            Semantics(
+              label: 'Pet mood $_moodLabel',
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(_moodIcon,
+                      color: _moodColor, size: 20, semanticLabel: _moodLabel),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Mood: $_moodLabel',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: _moodColor,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             const SizedBox(height: 12),
 
@@ -497,7 +587,7 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
 
             const SizedBox(height: 8),
 
-            // Derived speech bubble message from pet state
+            // what the pet is "saying", derived from state so it cant get out of sync
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
@@ -506,13 +596,19 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.grey.shade300),
               ),
-              child: Text(
-                '"$_petMessage"',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  fontStyle: FontStyle.italic,
+              child: AnimatedSwitcher(
+                duration: reduceMotion
+                    ? Duration.zero
+                    : const Duration(milliseconds: 300),
+                child: Text(
+                  '"$_petMessage"',
+                  key: ValueKey(_petMessage),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    fontStyle: FontStyle.italic,
+                  ),
                 ),
               ),
             ),
@@ -526,12 +622,12 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
             ),
             const SizedBox(height: 16),
 
-            // Bounded meters section: Happiness, Hunger, and Energy
-            _buildMeterRow('Happiness', _happiness, Colors.green),
+            // meters
+            _buildMeterRow('Happiness', _happiness, Colors.green, reduceMotion),
             const SizedBox(height: 12),
-            _buildMeterRow('Hunger', _hunger, Colors.orange),
+            _buildMeterRow('Hunger', _hunger, Colors.orange, reduceMotion),
             const SizedBox(height: 12),
-            _buildMeterRow('Energy', _energy, Colors.blue),
+            _buildMeterRow('Energy', _energy, Colors.blue, reduceMotion),
             const SizedBox(height: 24),
 
             // Action control buttons for pet care
@@ -573,8 +669,8 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
     );
   }
 
-  // Helper widget builder for a labeled progress bar meter
-  Widget _buildMeterRow(String label, int value, Color color) {
+  // meter row with smooth animation
+  Widget _buildMeterRow(String label, int value, Color color, bool reduceMotion) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -592,14 +688,20 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
           ],
         ),
         const SizedBox(height: 4),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: LinearProgressIndicator(
-            // Normalized double between 0.0 and 1.0 for progress indicator
-            value: value / 100.0,
-            minHeight: 12,
-            backgroundColor: Colors.grey.shade300,
-            valueColor: AlwaysStoppedAnimation<Color>(color),
+        TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0, end: value / 100.0),
+          duration: reduceMotion
+              ? Duration.zero
+              : const Duration(milliseconds: 400),
+          curve: Curves.easeOut,
+          builder: (context, animValue, _) => ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: animValue,
+              minHeight: 12,
+              backgroundColor: Colors.grey.shade300,
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
           ),
         ),
       ],
