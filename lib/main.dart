@@ -12,6 +12,7 @@ class DigitalPetApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Digital Pet',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
         useMaterial3: true,
@@ -35,20 +36,24 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
 
   int _happiness = 50;
   int _hunger = 50;
-  int _energy = 70; // Advanced Feature: Energy System
+  int _energy = 70; // Advanced Feature 1: Energy System (0-100)
 
   bool _gameOver = false;
   bool _hasWon = false;
   String _actionMessage = 'Take good care of your pet!';
 
-  // --- Timers ---
+  // --- Timers & Lifecycles ---
   Timer? _hungerTimer;
   Timer? _highMoodTimer;
+  Timer? _countdownTimer;
+  int _winSecondsRemaining = 0;
 
-  // Hunger timer interval (30s production requirement)
-  static const Duration _hungerInterval = Duration(seconds: 30);
-  // Win timer duration (3 minutes requirement)
-  static const Duration _winDuration = Duration(minutes: 3);
+  // Lab testing toggle: allows 5s hunger / 10s win testing or standard 30s/3m production durations
+  bool _fastTestTimers = false;
+
+  Duration get _hungerDuration =>
+      _fastTestTimers ? const Duration(seconds: 5) : const Duration(seconds: 30);
+  int get _winTargetSeconds => _fastTestTimers ? 10 : 180; // 3 minutes = 180s
 
   @override
   void initState() {
@@ -60,6 +65,7 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
   void dispose() {
     _hungerTimer?.cancel();
     _highMoodTimer?.cancel();
+    _countdownTimer?.cancel();
     _nameController.dispose();
     super.dispose();
   }
@@ -69,13 +75,15 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
 
   void _startHungerTimer() {
     _hungerTimer?.cancel();
-    _hungerTimer = Timer.periodic(_hungerInterval, (timer) {
+    _hungerTimer = Timer.periodic(_hungerDuration, (timer) {
       if (!mounted || _gameOver || _hasWon) {
         timer.cancel();
         return;
       }
       setState(() {
-        // Overflow rule: reaching 100 doesn't penalize; tick exceeding 100 penalizes happiness by 20
+        // Spec Overflow Rule:
+        // A tick changing hunger from 95 to 100 does not reduce happiness.
+        // A later tick that would exceed 100 clamps hunger at 100 and reduces happiness by 20.
         if (_hunger + 5 > 100) {
           _hunger = 100;
           _happiness = _clampMeter(_happiness - 20);
@@ -92,35 +100,59 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
 
     // Loss Condition: hunger is 100 AND happiness is 10 or lower
     if (_hunger == 100 && _happiness <= 10) {
-      _highMoodTimer?.cancel();
-      _highMoodTimer = null;
+      _cancelWinTimers();
       _hungerTimer?.cancel();
       setState(() {
         _gameOver = true;
-        _actionMessage = 'Game Over: Your pet needs immediate rest and care!';
+        _actionMessage = 'Game Over: $_petName starved and became very unhappy.';
       });
       return;
     }
 
-    // Win Condition rule: Happiness must remain strictly > 80 continuously for 3 minutes
+    // Win Condition: Happiness must remain strictly > 80 continuously for 3 minutes
     if (_happiness <= 80) {
-      if (_highMoodTimer != null) {
-        _highMoodTimer?.cancel();
-        _highMoodTimer = null;
-      }
+      _cancelWinTimers();
       return;
     }
 
-    // Start 3-minute win timer on first value strictly above 80
-    _highMoodTimer ??= Timer(_winDuration, () {
-      _highMoodTimer = null;
-      if (!mounted || _gameOver || _happiness <= 80) return;
-      setState(() {
-        _hasWon = true;
-        _actionMessage = '🎉 You Won! You kept $_petName happy for 3 continuous minutes!';
+    // Start win countdown if not already ticking
+    if (_highMoodTimer == null) {
+      _winSecondsRemaining = _winTargetSeconds;
+      _countdownTimer?.cancel();
+      _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+        if (!mounted || _gameOver || _happiness <= 80) {
+          t.cancel();
+          return;
+        }
+        setState(() {
+          if (_winSecondsRemaining > 0) {
+            _winSecondsRemaining--;
+          }
+        });
       });
-      _hungerTimer?.cancel();
-    });
+
+      _highMoodTimer = Timer(Duration(seconds: _winTargetSeconds), () {
+        _cancelWinTimers();
+        if (!mounted || _gameOver || _happiness <= 80) return;
+        setState(() {
+          _hasWon = true;
+          _actionMessage = '🎉 You Won! You kept $_petName happy (> 80) continuously!';
+        });
+        _hungerTimer?.cancel();
+      });
+    }
+  }
+
+  void _cancelWinTimers() {
+    _highMoodTimer?.cancel();
+    _highMoodTimer = null;
+    _countdownTimer?.cancel();
+    _countdownTimer = null;
+    if (_winSecondsRemaining != 0) {
+      setState(() {
+        _winSecondsRemaining = 0;
+      });
+    }
   }
 
   // --- Care Actions ---
@@ -128,14 +160,16 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
     if (_gameOver || _hasWon) return;
 
     final nextHunger = _clampMeter(_hunger - 10);
-    // Happiness bonus or penalty based on resultant hunger balance
+    // Lab balance guideline: if pet is overfed (hunger < 30), happiness decreases by 20; otherwise +10
     final happinessChange = nextHunger < 30 ? -20 : 10;
     final nextHappiness = _clampMeter(_happiness + happinessChange);
 
     setState(() {
       _hunger = nextHunger;
       _happiness = nextHappiness;
-      _actionMessage = 'Fed $_petName! (Hunger -10)';
+      _actionMessage = nextHunger < 30
+          ? 'Overfed $_petName! ($_petName got a stomachache, Happiness -20)'
+          : 'Fed $_petName! (Hunger -10, Happiness +10)';
     });
 
     _updateOutcome();
@@ -147,7 +181,7 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
     // Energy system rule: Playing costs 15 energy
     if (_energy < 15) {
       setState(() {
-        _actionMessage = '$_petName is too tired to play! Let them rest first.';
+        _actionMessage = '$_petName is exhausted (Energy: $_energy)! Let them rest first.';
       });
       return;
     }
@@ -160,7 +194,7 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
       _happiness = nextHappiness;
       _hunger = nextHunger;
       _energy = nextEnergy;
-      _actionMessage = 'Played with $_petName! (Happiness +15, Energy -15)';
+      _actionMessage = 'Played with $_petName! (Happiness +15, Hunger +5, Energy -15)';
     });
 
     _updateOutcome();
@@ -169,21 +203,27 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
   void _restPet() {
     if (_gameOver || _hasWon) return;
 
+    if (_energy >= 100) {
+      setState(() {
+        _actionMessage = '$_petName is already fully rested!';
+      });
+      return;
+    }
+
     final nextEnergy = _clampMeter(_energy + 25);
     final nextHunger = _clampMeter(_hunger + 5);
 
     setState(() {
       _energy = nextEnergy;
       _hunger = nextHunger;
-      _actionMessage = '$_petName took a restful nap! (Energy +25)';
+      _actionMessage = '$_petName took a restful nap! (Energy +25, Hunger +5)';
     });
 
     _updateOutcome();
   }
 
   void _resetGame() {
-    _highMoodTimer?.cancel();
-    _highMoodTimer = null;
+    _cancelWinTimers();
     _hungerTimer?.cancel();
 
     setState(() {
@@ -203,7 +243,7 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
     if (text.isNotEmpty) {
       setState(() {
         _petName = text;
-        _actionMessage = 'Pet named $_petName!';
+        _actionMessage = 'Pet name updated to $_petName!';
       });
     }
   }
@@ -223,7 +263,7 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
 
   Color get _moodColor {
     if (_happiness > 70) return Colors.green;
-    if (_happiness >= 30) return Colors.amber;
+    if (_happiness >= 30) return Colors.amber.shade700;
     return Colors.red;
   }
 
@@ -236,6 +276,31 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
         title: const Text('Digital Pet - Activity 07'),
         centerTitle: true,
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        actions: [
+          IconButton(
+            tooltip: _fastTestTimers ? 'Switch to Normal Timers' : 'Switch to Fast Test Timers',
+            icon: Icon(
+              _fastTestTimers ? Icons.flash_on : Icons.speed,
+              color: _fastTestTimers ? Colors.orange : null,
+            ),
+            onPressed: () {
+              setState(() {
+                _fastTestTimers = !_fastTestTimers;
+                _resetGame();
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    _fastTestTimers
+                        ? '⚡ Fast Test Timers (Hunger: 5s, Win: 10s)'
+                        : '🕒 Production Timers (Hunger: 30s, Win: 3min)',
+                  ),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -324,7 +389,7 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
                   border: Border.all(color: Colors.green),
                 ),
                 child: const Text(
-                  '🏆 VICTORY: You kept your pet happy (> 80) for 3 minutes!',
+                  '🏆 VICTORY: You kept your pet happy (> 80) for 3 continuous minutes!',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
                 ),
@@ -345,15 +410,22 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
               )
             else if (_highMoodTimer != null)
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: Colors.amber.shade100,
                   borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.shade700),
                 ),
-                child: const Text(
-                  '⏱️ Win countdown active! Keep happiness > 80 to win!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.brown, fontSize: 13),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.timer, color: Colors.brown, size: 18),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Win Countdown: ${_winSecondsRemaining ~/ 60}m ${(_winSecondsRemaining % 60).toString().padLeft(2, '0')}s remaining (> 80 Happy)',
+                      style: const TextStyle(color: Colors.brown, fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ],
                 ),
               ),
 
@@ -363,7 +435,7 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, fontStyle: FontStyle.italic, color: Colors.grey.shade700),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
             // --- Bounded Meters Section (Happiness, Hunger, Energy) ---
             _buildMeterRow('Happiness', _happiness, Colors.green),
