@@ -291,6 +291,16 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
     }
   }
 
+  // Derived pet speech message matching the assignment handout specification
+  String get _petMessage {
+    if (_gameOver) return 'I need a rest.';
+    if (_hasWon) return 'Best day ever!';
+    if (_hunger > 80) return "I'm starving!";
+    if (_happiness <= 30) return 'Play with me?';
+    if (_energy < 20) return 'So sleepy...';
+    return "Hi, I'm $_petName!";
+  }
+
   // Derived mood text for accessible non-color feedback
   String get _moodLabel {
     if (_happiness > 70) return 'Happy';
@@ -305,10 +315,10 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
     return Icons.sentiment_very_dissatisfied;
   }
 
-  // Derived color threshold based on pet happiness
+  // Derived color threshold based on pet happiness (exact snippet from handout)
   Color get _moodColor {
     if (_happiness > 70) return Colors.green;
-    if (_happiness >= 30) return Colors.amber.shade700;
+    if (_happiness >= 30) return Colors.yellow;
     return Colors.red;
   }
 
@@ -485,6 +495,27 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
                 ),
               ),
 
+            const SizedBox(height: 8),
+
+            // Derived speech bubble message from pet state
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Text(
+                '"$_petMessage"',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
             const SizedBox(height: 8),
 
             // Subtitle detailing the last user action result
