@@ -421,9 +421,16 @@ class _DigitalPetHomePageState extends State<DigitalPetHomePage> {
                   children: [
                     const Icon(Icons.timer, color: Colors.brown, size: 18),
                     const SizedBox(width: 6),
-                    Text(
-                      'Win Countdown: ${_winSecondsRemaining ~/ 60}m ${(_winSecondsRemaining % 60).toString().padLeft(2, '0')}s remaining (> 80 Happy)',
-                      style: const TextStyle(color: Colors.brown, fontWeight: FontWeight.bold, fontSize: 13),
+                    Expanded(
+                      child: Text(
+                        'Win Countdown: ${_winSecondsRemaining ~/ 60}m ${(_winSecondsRemaining % 60).toString().padLeft(2, '0')}s remaining (> 80 Happy)',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.brown,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
                     ),
                   ],
                 ),
