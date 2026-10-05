@@ -2,14 +2,24 @@
 
 Collaborative Flutter state-management simulation app built with `StatefulWidget`, `setState()`, lifecycle-aware timers, and accessible feedback.
 
-## Team Workstreams & Roles
+## Team Workstreams & Collaborators
 - **Pathway**: Undergraduate Pathway
 - **Team 1 (Care Systems & Core State)**:
-  - Owner: Care loop, bounded state meters, timer lifecycles, and game outcome logic.
-  - Branch: `team-1/care-systems`
+  - **Member**: Adi Tauqir ([@aditauqir](https://github.com/aditauqir))
+  - **Responsibilities**: Care loop, bounded state meters (0-100), timer lifecycles (30-second hunger, 3-minute continuous win), energy system, outcome rules, state boundary tests.
+  - **Pull Request**: [#1: Care Systems & Logic](https://github.com/aditauqir/In-Class-Activity-07-Digital-Pet/pull/1)
 - **Team 2 (Pet Personality & Visual Polish)**:
-  - Owner: Pet visual assets, mood tinting (`ColorFiltered`), expression animations, accessible motion.
-  - Branch: `team-2/pet-personality`
+  - **Member**: [Wilder Edwards](https://github.com/WilderEdwards) ([@WilderEdwards](https://github.com/WilderEdwards))
+  - **Responsibilities**: Transparent pet PNG asset, `ColorFiltered` mood tinting, visual polish bundle (`AnimatedScale` bounce, `AnimatedSwitcher`, `TweenAnimationBuilder` living meters, action reactions), reduced-motion support.
+  - **Pull Request**: [#2: Pet Personality & UI](https://github.com/aditauqir/In-Class-Activity-07-Digital-Pet/pull/2)
+
+---
+
+## App Screenshots
+
+| Neutral Mood (Initial State) | Happy Mood (> 80 with Win Timer) | Unhappy Mood (< 30 Overfed State) |
+| :---: | :---: | :---: |
+| ![Neutral](screenshots/app_neutral.png) | ![Happy](screenshots/app_happy.png) | ![Unhappy](screenshots/app_unhappy.png) |
 
 ---
 
@@ -37,6 +47,17 @@ Collaborative Flutter state-management simulation app built with `StatefulWidget
 - **Costs**: Playing costs 15 energy. If energy drops below 15, pet is exhausted and cannot play until rested.
 - **Recovery**: Rest / Nap action restores +25 energy (and slightly increases hunger by +5).
 
+### Advanced Feature 2: Visual Polish & Accessible Motion (Team 2)
+- **Transparent Asset Tinting**: Uses `ColorFiltered` with `BlendMode.modulate` on `assets/pet.png`:
+  - Green when happiness $> 70$.
+  - Yellow when happiness is between 30 and 70.
+  - Red when happiness $< 30$.
+- **Accessible Presentation**: Accompanied by text labels and mood icons so color is never the sole indicator.
+- **Action Bounce & Scale**: Wraps the pet in `AnimatedScale` with responsive scaling on actions and mood bands.
+- **Living Meters**: Employs `TweenAnimationBuilder<double>` for smooth meter transitions.
+- **Speech Bubble & Expression Crossfade**: Uses `AnimatedSwitcher` to crossfade derived pet messages.
+- **Reduced Motion Support**: Honors `MediaQuery.of(context).disableAnimations` to disable non-essential motion.
+
 ---
 
 ## Setup & Running the App
@@ -48,18 +69,22 @@ flutter pub get
 # Run static analysis
 flutter analyze
 
-# Run automated state boundary and widget tests
+# Run automated tests
 flutter test
 
-# Run the app on connected device / emulator
+# Run app on connected device or emulator
 flutter run
+
+# Build release APK
+flutter build apk --release
 ```
 
 ---
 
-## Automated Test Suite
-Team 1 provides automated test suites verifying state boundaries and timer behaviors:
-1. `test/widget_test.dart`: Verifies rendering, feed action, play action, and reset.
+## Automated Test Evidence
+
+Both test suites pass with zero warnings:
+1. `test/widget_test.dart`: Verifies initial rendering, feed action, play action, and reset.
 2. `test/state_boundary_test.dart`:
    - Clamping meters at lower (0) and upper (100) bounds.
    - Energy exhaustion restrictions on play.
