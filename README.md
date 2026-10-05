@@ -60,6 +60,43 @@ Collaborative Flutter state-management simulation app built with `StatefulWidget
 
 ---
 
+## Feature to Learning Outcome Map
+
+| Feature | Learning Outcome | Implementation & Evidence |
+| :--- | :--- | :--- |
+| **Animated bounce** | UI responds to state; delayed callbacks respect widget lifecycle | `AnimatedScale` scales pet to 1.15 on action taps; timers check `mounted` before ending bounce. |
+| **Mood tint and size** | Color and scale derive from happiness using the defined mood thresholds | Coat color, label, icon, and scale change at thresholds 29, 30, 70, and 71. |
+| **Living meters** | Build reads state-derived values without side effects | `TweenAnimationBuilder<double>` glides meter bars smoothly without mutating underlying state. |
+| **Reduced-motion support** | Interaction remains usable with motion disabled | `MediaQuery.of(context).disableAnimations` sets animation durations to `Duration.zero`. |
+| **Energy system** | Bounded multi-variable game loop logic | Bounded meter (0-100) gating play actions when energy $< 15$ and recovered via rest actions. |
+
+---
+
+## Mood Threshold Evidence (29, 30, 70, 71)
+
+| Happiness Value | Mood Label | Coat Tint Color | Pet Scale | Mood Icon | Reduced-Motion Behavior |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| **29** | Unhappy | Red (`Colors.red`) | 0.94 | `sentiment_very_dissatisfied` | Instant color/label update, scale animation skipped |
+| **30** | Neutral | Yellow (`Colors.yellow`) | 1.00 | `sentiment_neutral` | Instant color/label update, scale animation skipped |
+| **70** | Neutral | Yellow (`Colors.yellow`) | 1.00 | `sentiment_neutral` | Instant color/label update, scale animation skipped |
+| **71** | Happy | Green (`Colors.green`) | 1.06 | `sentiment_very_satisfied` | Instant color/label update, scale animation skipped |
+
+---
+
+## Minimum Manual Test Matrix
+
+| Scenario | Expected Result | Verified Result |
+| :--- | :--- | :--- |
+| **Feed at hunger 5; feed at hunger 95** | Hunger remains in 0-100; happiness rule is applied using resulting hunger. | Hunger clamps at 0; overfeeding penalty (-20 happiness) applies when hunger $< 30$. |
+| **Play at happiness 95; play at energy 5** | Meters stay in 0-100; energy restriction blocks play when energy $< 15$. | Happiness clamps at 100; pet reports exhaustion and prompts user to rest. |
+| **Happiness stays above 80 for 2:59, then drops to 80** | No win; pending win timer is canceled and cleared. | Win countdown disappears; win timer is canceled and set to null. |
+| **Happiness stays above 80 continuously for 3:00** | Win at three continuous minutes; hunger timer stops. | Victory banner displays; hunger timer cancels cleanly. |
+| **Hunger moves from 95 to 100, then receives another tick** | First tick reaches 100 with no penalty; subsequent overflow tick reduces happiness by 20. | Hunger clamps at 100; next tick at 100 subtracts 20 happiness. |
+| **Hunger reaches 100 and happiness reaches 10** | Game over appears; care actions disabled until restart. | Game over banner displays; all action buttons disabled except Reset. |
+| **Leave the pet screen while timer is active** | Timers canceled in `dispose()`; no post-dispose updates. | Clean disposal; 0 lifecycle console errors or exceptions. |
+
+---
+
 ## Setup & Running the App
 
 ```bash
@@ -90,3 +127,9 @@ Both test suites pass with zero warnings:
    - Energy exhaustion restrictions on play.
    - Win condition timer initiation strictly above 80 (and not at 80).
    - Reset behavior cancelling win timer and restoring defaults.
+
+---
+
+## Asset Attribution & License
+
+- **`assets/pet.png`**: Original light-gray transparent illustration created for Activity 07 Digital Pet State Lab. Designed specifically with a transparent alpha channel for compatibility with `BlendMode.modulate` color tinting. Licensed under the MIT License for educational use.
