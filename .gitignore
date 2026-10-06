@@ -47,9 +47,6 @@ app.*.map.json
 # Widget Preview related
 .widget_preview/
 
-# Build releases
-releases/
-*.apk
 github_link.txt
 
 # Student submission documents
